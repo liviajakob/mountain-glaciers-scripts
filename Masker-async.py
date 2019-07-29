@@ -23,6 +23,8 @@ import calendar
 import numpy as np
 from osgeo import gdal
 from scipy.interpolate import griddata
+import AsyncDataSetQuery
+
 
 shapely.speedups.enable()
 
@@ -58,7 +60,7 @@ def uncaughtErrorHandler(type, value, tb):
 
 
 
-def filter(query,parentDsName, region, minX,maxX,minY,maxY,minT,maxT, **kwargs):
+def filter(query_async,query_sync,parentDsName, region, minX,maxX,minY,maxY,minT,maxT, **kwargs):
     '''FILTER with the usual criteria
 
     :param query:
@@ -85,11 +87,12 @@ def filter(query,parentDsName, region, minX,maxX,minY,maxY,minT,maxT, **kwargs):
 
     #TandemX
     logger.info("Filter tandemX... ")
-    tandemX = query.executeQuery( parentDsName,'tdx', region,minX,maxX,minY,maxY,minT,maxT,[],filters)
 
-    if os.path.isfile(tandemX):
-        dfTandemX = MalardHelpers.getDataFrameFromNetCDF(tandemX)
-        query.releaseCache(tandemX)
+    tandemX = query_async.executeQuery( parentDsName,'tdx', region,minX,maxX,minY,maxY,minT,maxT,[],filters)
+
+    if os.path.isfile(tandemX.resultFileName):
+        dfTandemX = MalardHelpers.getDataFrameFromNetCDF(tandemX.resultFileName)
+        query_sync.releaseCache(tandemX.resultFileName)
     else:
         logger.info('TandemX file=%s for minX=%s maxX=%s minY=%s maxY=%s empty. Empty dataframe is created', tandemX, minX, maxX, minY, maxY)
         dfTandemX = pd.DataFrame()
@@ -100,11 +103,10 @@ def filter(query,parentDsName, region, minX,maxX,minY,maxY,minT,maxT, **kwargs):
 
     #Srtm
     logger.info("Filter SRTM... ")
-    srtm = query.executeQuery(parentDsName,'srtm',region,minX,maxX,minY,maxY,minT,maxT,[],filters)
-
-    if os.path.isfile(srtm):
-        dfSrtm = MalardHelpers.getDataFrameFromNetCDF(srtm)
-        query.releaseCache(srtm)
+    srtm = query_async.executeQuery(parentDsName,'srtm',region,minX,maxX,minY,maxY,minT,maxT,[],filters)
+    if os.path.isfile(srtm.resultFileName):
+        dfSrtm = MalardHelpers.getDataFrameFromNetCDF(srtm.resultFileName)
+        query_sync.releaseCache(srtm.resultFileName)
     else:
         logger.info('SRTM file=%s for minX=%s maxX=%s minY=%s maxY=%s empty. Empty dataframe is created', srtm, minX, maxX, minY, maxY)
         dfSrtm = pd.DataFrame()
@@ -358,6 +360,7 @@ if __name__=="__main__":
     environmentName = 'DEVv2'
     #Sets the URL of the Malard ServiceGateway.
     query = DataSetQuery.DataSetQuery('http://localhost:9000',environmentName)
+    query_async = AsyncDataSetQuery.AsyncDataSetQuery( 'ws://localhost:9000',environmentName, False)
 
     ######### VARIABLES ##############################################################
 
@@ -380,7 +383,8 @@ if __name__=="__main__":
     #minT and maxT
     bbx = query.getDataSetBoundingBox( parentDsName, 'tdx', region )
     bbx = json.loads(bbx)
-    minT = datetime.datetime.utcfromtimestamp(bbx['minTime']) # divide by 1000 because it is in milliseconds
+
+    minT = datetime.datetime.utcfromtimestamp(bbx['minTime'])
     maxT = datetime.datetime.utcfromtimestamp(bbx['maxTime'])
 
     projection = json.loads(query.getProjection(parentDsName, region))['proj4']
@@ -399,7 +403,7 @@ if __name__=="__main__":
         logger.info("No mask found for %s, %s, %s, %s, minX=%s, minY=%s, size=%s", parentDsName, maskDataSet, 'Glacier', region,minX,minY,size)
     else:
         # STEP 1: Filter
-        tandemX, srtm = filter(query,parentDsName,region,minX,maxX,minY,maxY,minT,maxT)
+        tandemX, srtm = filter(query_async,query,parentDsName,region,minX,maxX,minY,maxY,minT,maxT)
 
         # STEP 2: NotInJoin
         srtmNotIn = notInJoin(tandemX, srtm)
