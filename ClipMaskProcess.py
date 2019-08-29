@@ -16,20 +16,30 @@ shapely.speedups.enable()
 
 class ClipMaskProcess:
 
-    # Debris
+    # Himalayas Debris
     # "SDCv10"
     # "/data/puma1/scratch/mtngla/masks/himalayas/debris/13_14_15_rgi60_Himalayas_debris.shp"
 
-    # Glacier
+    # Himalayas Glacier
     # "RGIv60"
     # "/data/puma1/scratch/mtngla/masks/himalayas/glacier-outlines/13_14_15_rgi60_Himalayas_mask.shp"
 
+    # ----
+
+    # Alaska Debris
+    # "SDCv10"
+    # "/data/puma1/scratch/mtngla/masks/alaska/debris/PCR-debris-outline.shp"
+
+    # Alaska Glacier
+    # "RGIv60"
+    # "/data/puma1/scratch/mtngla/masks/alaska/glacier/PCR-glacier-outlines.shp"
+
     __conf = {
-        "maskType": "Debris",
-        "maskPath": "/data/puma1/scratch/mtngla/masks/himalayas/debris/13_14_15_rgi60_Himalayas_debris.shp",
-        "dataSet": "SDCv10",
+        "maskType": "Glacier",
+        "maskPath": "/data/puma1/scratch/mtngla/masks/alaska/glacier/PCR-glacier-outlines.shp",
+        "dataSet": "RGIv60",
+        "region": "alaska",
         "parentDsName": "mtngla",
-        "region": "himalayas",
         "inputDataSet": "tdx2",
         "malardEnvironmentName": "DEVv2",
         "malardSyncURL": "http://localhost:9000",
@@ -168,5 +178,6 @@ class ClipMaskProcess:
 
 
 if __name__ ==  '__main__':
-    clip = ClipMaskProcess(400000, 500000, 0, 100000)
+    # himalayas
+    clip = ClipMaskProcess(100000, 200000, 0, 100000)
     clip.startProcess()

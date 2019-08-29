@@ -11,18 +11,19 @@ from DataSets import *
 
 class MtnGlaGridcellProcess:
 
-#"referenceDem":"/data/puma1/scratch/DEMs/srtm_test.tif",
+#"referenceDem":"/data/puma1/scratch/DEMs/srtm_test.tif"
+#"referenceDem":"/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif"
 
     __conf = {
-        "runName": "TestRun1",
-        "outputDataSet": "Ready1",
+        "runName": "TestRun8",
+        "outputDataSet": "Ready8",
         "parentDsName": "mtngla",
         "region":"himalayas",
         "maskDataSet": "RGIv60",
-        "withinDataSets": ["SDCv10"],
-        "withinDataSetTypes": ["Debris"],
-        "referenceDem": "/data/puma1/scratch/mtngla/DEMs-coreg/HMA_TDX_Masked_SRTM_Merged_coreg.tif",
-        "inputDataSet": "tdx",
+        "withinDataSets": ["SDCv10", "/data/puma1/scratch/mtngla/dems/Tdx_SRTM_SurfaceSplit.tiff"],
+        "withinDataSetTypes": ["Debris", "Tdx"],
+        "referenceDem": "/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif",
+        "inputDataSet": "tdx2",
         "malardEnvironmentName": "DEVv2",
         "malardSyncURL": "http://localhost:9000",
         "malardAsyncURL": "ws://localhost:9000",
@@ -77,7 +78,6 @@ class MtnGlaGridcellProcess:
     def startProcess(self):
         self.logger.info('Starting gridcell: minX=%s, minY=%s, parentDs=%s, inputDataSet=%s, outputDataSet=%s, runName=%s,', self.minX, self.minY, self.parentDsName, self.inputDataSet, self.outputDataSet, self.runName)
         self.defineVariables()
-
         if os.path.exists(self.maskDataSetFile):
             self.data = self.filter(self.inputDataSet)
             # @TODO SRTM filter and join?
@@ -97,8 +97,6 @@ class MtnGlaGridcellProcess:
                 self.addStatistics()
                 self.publish()
                 self.logger.info("STATISTICS: %s", self.data.getStats())
-
-
         else:
             self.logger.info("No valid mask (fp=%s) found for %s, %s, %s, minX=%s, minY=%s, size=%s", self.maskDataSetFile, self.maskDataSet, 'Glacier', self.region, self.minX, self.minY, self.size)
 
@@ -115,10 +113,11 @@ class MtnGlaGridcellProcess:
         filters = self.config('filters')
         self.logger.info("Filtering dataset=%s with criteria %s" % (datasetName, filters))
         result = self.query_async.executeQuery(self.parentDsName, datasetName, self.region, self.minX, self.maxX, self.minY, self.maxY, self.minT, self.maxT,[],filters)
+        self.logger.info("Result message: %s, %s" % (result.status, result.message))
         fp = result.resultFileName
         data = PointDataSet(fp, self.projection)
         # release cache of file
-        self.query_sync.releaseCache(fp)
+        self.query_async.releaseCache(fp)
         data.addStatistic('%s_filtered' % datasetName, data.length())
         self.logger.info("Filter %s result count [%d]" % (datasetName, data.length()))
         return data
@@ -180,15 +179,15 @@ class MtnGlaGridcellProcess:
 
         # publish
         self.logger.info('Publish new dataset...')
-        msg=self.query_sync.publishGridCellPoints(self.parentDsName, self.outputDataSet, self.region, self.minX, self.minY, self.size, outPath, self.projection)
-        self.logger.info(msg)
+        result=self.query_async.publishGridCellPoints(self.parentDsName, self.outputDataSet, self.region, self.minX, self.minY, self.data.min('time'), self.size, outPath, self.projection)
+        self.logger.info('Response: %s' %  result.json)
         # delete temporary file
         os.remove(outPath)
 
         # publish stats
         self.logger.info('Publish gridcell statistics...')
         response = self.query_sync.publishGridCellStats(self.parentDsName, self.runName, self.minX, self.minY, self.size, self.data.getStats())
-        self.logger.info(response)
+        self.logger.info('Response: %s' % response)
 
 
 
@@ -204,16 +203,18 @@ class MtnGlaGridcellProcess:
         self.projection = json.loads(self.query_sync.getProjection(self.parentDsName, self.region))['proj4']
 
         # masks
-        # glacier mask @TODO change HMA to self.region
-        mGla = self.query_sync.getGridCellMask(self.parentDsName, self.maskDataSet, 'Glacier', 'HMA', self.minX, self.minY, self.size)
+        mGla = self.query_sync.getGridCellMask(self.parentDsName, self.maskDataSet, 'Glacier', self.region, self.minX, self.minY, self.size)
         self.maskDataSetFile = json.loads(mGla)['fileName']
 
-        # debris mask # @TODO change HMA to self.region
         self.withinDataSetFiles = []
-        for i in self.withinDataSets:
-            mask = self.query_sync.getGridCellMask(self.parentDsName, i, 'Debris', 'HMA', self.minX, self.minY, self.size)
-            self.withinDataSetFiles.append(json.loads(mask)['fileName'])
-
+        for i, el in enumerate(self.withinDataSets):
+            # @TODO not just Debris
+            if os.path.exists(el):
+                self.withinDataSetFiles.append(el)
+            else:
+                mask = self.query_sync.getGridCellMask(self.parentDsName, el, self.withinDataSetTypes[i], self.region, self.minX, self.minY, self.size)
+                self.withinDataSetFiles.append(json.loads(mask)['fileName'])
+        print(self.withinDataSetFiles)
 
     @staticmethod
     def config(name):
@@ -222,10 +223,15 @@ class MtnGlaGridcellProcess:
         self.logger.error("Uncaught exception", exc_info=(type, value, tb))
 
 if __name__ ==  '__main__':
-    logFile = 'mntgla.log'
-    #mtngla = MtnGlaGridcellProcess(400000, 500000, 0, 100000)
+    mtngla = MtnGlaGridcellProcess(400000, 500000, 0, 100000)
     #mtngla = MtnGlaGridcellProcess(500000, 600000, 0, 100000)
     #mtngla = MtnGlaGridcellProcess(700000, 800000, 0, 100000)
-    mtngla = MtnGlaGridcellProcess(500000, 600000, 100000, 200000)
+    #mtngla = MtnGlaGridcellProcess(500000, 600000, 100000, 200000)
     #mtngla = MtnGlaGridcellProcess(500000, 600000, -100000, 0)
+
+    # error in this one for dem diff
+    #mtngla = MtnGlaGridcellProcess(200000, 300000, -100000, 0)
+
+    # mask file not found
+    #mtngla = MtnGlaGridcellProcess(-200000, -100000, -200000, -100000)
     mtngla.startProcess()

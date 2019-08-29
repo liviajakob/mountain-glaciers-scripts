@@ -12,7 +12,7 @@ import MtnGlaGridcellProcess as mtn
 
 
 def parseArguments():
-    parser = argparse.ArgumentParser(description='Clip and publish mask of an extent.')
+    parser = argparse.ArgumentParser(description='Filter, mask etc. of one gridcell in mntgla project.')
     parser.add_argument('minX', type=int, help='minX of extent')
     parser.add_argument('maxX', type=int, help='maxX of extent')
     parser.add_argument('minY', type=int, help='minY of extent')
@@ -23,7 +23,7 @@ def parseArguments():
 
 if __name__=="__main__":
     args=parseArguments()
-    process = mtn.MtnGlaGridcellProcess(args.minX, args.maxX, args.minY, args.maxY, logFile='mntgla.log')
+    process = mtn.MtnGlaGridcellProcess(args.minX, args.maxX, args.minY, args.maxY, logFile='mntgla3.log')
     process.startProcess()
 
 

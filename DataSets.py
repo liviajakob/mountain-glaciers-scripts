@@ -27,15 +27,12 @@ class PointDataSet:
         else:
             self._readData(data)
 
-
-
     def _readData(self, filename):
         if os.path.isfile(filename):
             self.data = MalardHelpers.getDataFrameFromNetCDF(filename)
         else:
-            self.logger.info('File=%s for minX=%s maxX=%s minY=%s maxY=%s empty. Empty dataframe is created', filename, minX, maxX, minY, maxY)
-            self.df = pd.DataFrame()
-
+            self.logger.info('File=%s empty. Empty dataframe is created', filename)
+            self.data = pd.DataFrame()
 
     def asGeoDataSet(self):
         if hasattr(self, 'geoDataSet'):
@@ -70,7 +67,8 @@ class PointDataSet:
             dem.cutToBbx(self.data['x'].min(), self.data['x'].max(), self.data['y'].min(), self.data['y'].max(), buffer)
             xy, values = dem.getCenterPoints()
             # get point coordinates as numpy
-            coords = np.asarray([self.data['x'], self.data['y']])
+            #coords = np.asarray([self.data['x'], self.data['y']])
+            coords = np.vstack((self.data['x'].values, self.data['y'].values))
             coords = np.transpose(coords)
 
             # interpolate
@@ -102,6 +100,10 @@ class PointDataSet:
         return float(len(self.data.index))
     def mean(self, column):
         return float(self.data[column].mean())
+    def min(self, column):
+        return self.data[column].min()
+    def max(self, column):
+        return self.data[column].max()
 
 class PointGeoDataSet(PointDataSet):
 
@@ -129,7 +131,7 @@ class PointGeoDataSet(PointDataSet):
                 self.logger.info("After applying %s mask: point count [%d]" % (maskType,len(maskedGla.index)))
                 self.data = maskedGla
             else:
-                self.logger.error('Error: File path=%s of type=s% is invalid' % (maskPath, maskType))
+                self.logger.error('Error: File path=%s of type=%s is invalid' % (maskPath, maskType))
 
 
     def withinMask(self, maskPath, maskType):
@@ -150,7 +152,7 @@ class PointGeoDataSet(PointDataSet):
                 else:
                     self._withinMaskPolys(maskPath, maskType)
             else:
-                self.logger.error('Error: File path=%s of type=s% is invalid' % (maskPath, maskType))
+                self.logger.error('Error: File path=%s of type=%s is invalid' % (maskPath, maskType))
                 self.data['within_%s' % maskType] = 0
                 self.stats['pointsWithin%sMask' % maskType] = 0.0
 
@@ -180,7 +182,8 @@ class PointGeoDataSet(PointDataSet):
     def _withinMaskRaster(self, maskPath, maskType):
         self.logger.info("Read raster mask file... ")
         raster = RasterDataSet(maskPath)
-        raster.cutToBbx(self.data['x'].min(), self.data['x'].max(), self.data['y'].min(), self.data['y'].max())
+        buffer = (self.data['x'].max()-self.data['x'].min())/10
+        raster.cutToBbx(self.data['x'].min(), self.data['x'].max(), self.data['y'].min(), self.data['y'].max(), buffer=buffer)
 
         self.logger.info("Apply %s mask (adds a column to points describing if they within mask)... " % maskType)
         values = raster.getValuesAt(self.data['x'].tolist(), self.data['y'].tolist())
@@ -222,6 +225,7 @@ class RasterDataSet:
         :return:
         '''
         out_tif = "/vsimem/tile_%s_%s_%s_%s.tif" % (minX-buffer, maxY+buffer, maxX+buffer, minY-buffer)
+        self.logger.info("Saved as tile_%s_%s_%s_%s.tif" % (minX-buffer, maxY+buffer, maxX+buffer, minY-buffer))
         self.logger.info("Clipping raster file to minX=%s maxX=%s minY=%s maxY=%s with buffer=%s... " % (minX, maxX, minY, maxY, buffer))
         self.data = gdal.Translate(out_tif, self.data, projWin = [minX-buffer, maxY+buffer, maxX+buffer, minY-buffer])
 
@@ -234,20 +238,14 @@ class RasterDataSet:
         '''
         #data = self.data.ReadAsArray().astype(np.float)
         data = self.data.GetRasterBand(1).ReadAsArray()
-        print('data ', data.shape)
-        print('xy ', len(x), len(y))
-        #gt = self.data.GetGeoTransform()
-        forward_transform = affine.Affine.from_gdal(*self.data.GetGeoTransform())
-        reverse_transform = ~forward_transform
         if isinstance(x, (list, np.ndarray)) and isinstance(y, (list, np.ndarray)):
             values =[]
             for idx, i in enumerate(x):
-                print(self._getPixel(x[idx],y[idx],reverse_transform))
-                values.append(data[self._getPixel(x[idx],y[idx],reverse_transform)])
+                #print(self._getPixel(x[idx],y[idx],reverse_transform))
+                values.append(data[self._getPixel(x[idx],y[idx],self.data.GetGeoTransform())])
             return values
         else:
-            return data[self._getPixel(x,y,gt)]
-
+            return data[self._getPixel(x,y,self.data.GetGeoTransform())]
 
 
     def _getPixel(self, x, y, gt):
@@ -258,10 +256,8 @@ class RasterDataSet:
         :param gt: GeoTransform
         :return:
         '''
-        #py = int((x-gt[0])/gt[1])
-        #px = int((y-gt[3])/gt[5])
-        px, py = gt * (x, y)
-        px, py = int(px+0.5), int(py+0.5)
+        py = int((x-gt[0])/gt[1])
+        px = int((y-gt[3])/gt[5])
         return px, py
 
 
@@ -310,25 +306,25 @@ if __name__ ==  '__main__':
     referenceDem = "/data/puma1/scratch/DEMs/srtm_test.tif"
     demDataSetMask = "/data/puma1/scratch/mtngla/DEMs-coreg/Tdx_Srtm_SurfaceSplit.tiff"
 
-    #raster = RasterDataSet(referenceDem)
-    #raster.cutToBbx(0,1000,0,1000)
-    #values = raster.getValuesAt([100,200], [1000,700])
+    raster = RasterDataSet(referenceDem)
+    raster.cutToBbx(0,1000,0,1000)
+    values = raster.getValuesAt([100,200], [1000,700])
     #values = raster.getValueAt(100, 700)
-    #print(values)
+    print(values)
 
-    ds = PointDataSet(fp, projection)
+    #ds = PointDataSet(fp, projection)
 
-    geoDs = ds.asGeoDataSet()
-    geoDs.applyMask(glacierMask, 'Glacier')
+    #geoDs = ds.asGeoDataSet()
+    #geoDs.applyMask(glacierMask, 'Glacier')
 
     #geoDs.calculateElevationDifference(raster, buffer=10000)
 
 
     #geoDs.withinMask(debrisMask, 'Debris')
 
-    geoDs.withinMask(referenceDem, 'DemDataSets')
+    #geoDs.withinMask(referenceDem, 'DemDataSets')
 
-    print(geoDs.data['within_DemDataSets'])
-    print(geoDs.data.head())
+    #print(geoDs.data['within_DemDataSets'])
+    #print(geoDs.data.head())
 
-    exit(0)
+    #exit(0)

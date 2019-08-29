@@ -1,5 +1,5 @@
 
-#Execution example: ./gridcells-clipping.sh hma-gridcells.txt
+#Execution example: ./hma-gridcells.sh hma-gridcells.txt
 #Execution example with time display: time ./hma-gridcells.sh hma-gridcells.txt
 
 #Sets input variable to be the first variable. This should be the command file.
@@ -14,4 +14,4 @@ maxY=($(awk -F"," '{print $4}' $input))
 #Run in parallel passing in variables row by row
 # -j number of parallel processes
 #-k parameter enforces the processing to be in the same order as input
-parallel --progress --link -j 4 'python CmdClipMask.py {1} {2} {3} {4}' ::: ${minX[*]} ::: ${maxX[*]} ::: ${minY[*]} ::: ${maxY[*]}
+parallel --progress --link -j 1 'python CmdMtnGlaGridcell.py {1} {2} {3} {4}' ::: ${minX[*]} ::: ${maxX[*]} ::: ${minY[*]} ::: ${maxY[*]}
