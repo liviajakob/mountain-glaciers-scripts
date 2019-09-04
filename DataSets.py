@@ -15,7 +15,6 @@ import affine
 class PointDataSet:
     def __init__(self, data, projection, stats={}):
         '''
-
         :param data: can be a dataframe or a filename to a netcdf
         :param projection:
         '''
@@ -187,12 +186,25 @@ class PointGeoDataSet(PointDataSet):
 
         self.logger.info("Apply %s mask (adds a column to points describing if they within mask)... " % maskType)
         values = raster.getValuesAt(self.data['x'].tolist(), self.data['y'].tolist())
+        self.data['within_%s' % maskType] = values
 
         # summary
-        self.data['within_%s' % maskType] = values
-        count = self.data.loc[(self.data['within_%s' % maskType] == 1)].shape[0]
-        self.stats['pointsWithin%sMask' % maskType] = float(count)
-        self.logger.info("Points within %s mask: count [%d]" % (maskType, count))
+        unique = self.data['within_%s' % maskType].unique()
+
+        for i in unique:
+            count = self.data.loc[(self.data['within_%s' % maskType] == i)].shape[0]
+            ratio = (float(count)/ float(self.data.shape[0])) *100.0
+            self.stats['pointsOn%sValue%s' % (maskType, i)] = float(count)
+            self.stats['pointsOn%sValue%sRatio' % (maskType, i)] = ratio
+            self.logger.info("Points within %s mask value %s: count [%d]" % (maskType, i, count))
+            self.logger.info("Points within %s mask value %s: ratio [%s]" % (maskType, i, ratio))
+        #count = self.data.loc[(self.data['within_%s' % maskType] == 1)].shape[0]
+        #ratio = (float(count)/ float(self.data.shape[0])) *100.0
+        #self.stats['pointsWithin%sMask' % maskType] = float(count)
+        #self.stats['pointsWithin%sMaskRatio' % maskType] = ratio
+        #self.stats['pointsNotWithin%sMaskRatio' % maskType] = 100.0-ratio
+        #self.logger.info("Points within %s mask: count [%d]" % (maskType, count))
+        #self.logger.info("Points within %s mask: ratio [%s]" % (maskType, ratio))
 
 
     def getData(self, geo=True):

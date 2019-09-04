@@ -11,23 +11,34 @@ from DataSets import *
 
 class MtnGlaGridcellProcess:
 
-#"referenceDem":"/data/puma1/scratch/DEMs/srtm_test.tif"
-#"referenceDem":"/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif"
+    #"referenceDem":"/data/puma1/scratch/DEMs/srtm_test.tif"
+    #"referenceDem":"/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif"
+
+    # HIMALAYAS
+    #"runName": "TestRun8",
+    #"outputDataSet": "Ready8",
+    #"parentDsName": "mtngla",
+    #"region":"himalayas",
+    #"maskDataSet": "RGIv60",
+    #"withinDataSets": ["SDCv10", "/data/puma1/scratch/mtngla/dems/Tdx_SRTM_SurfaceSplit.tiff"],
+    #"withinDataSetTypes": ["Debris", "Srtm"],
+    #"referenceDem": "/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif",
+    #"inputDataSet": "tdx2",
 
     __conf = {
-        "runName": "TestRun8",
-        "outputDataSet": "Ready8",
+        "runName": "AlaskaRun",
+        "outputDataSet": "ReadyData",
         "parentDsName": "mtngla",
-        "region":"himalayas",
+        "region":"alaska",
         "maskDataSet": "RGIv60",
-        "withinDataSets": ["SDCv10", "/data/puma1/scratch/mtngla/dems/Tdx_SRTM_SurfaceSplit.tiff"],
-        "withinDataSetTypes": ["Debris", "Tdx"],
-        "referenceDem": "/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif",
-        "inputDataSet": "tdx2",
+        "withinDataSets": ["SDCv10", "/data/puma1/scratch/mtngla/dems/TD_AD_Interp_SurfaceSplit.tiff"],
+        "withinDataSetTypes": ["Debris", "DataSet"],
+        "referenceDem": "/data/puma1/scratch/mtngla/dems/PCR_TdxFilledWithAD_Masked_Polar_Interp_clip.tif",
+        "inputDataSet": "ADwithTDX",
         "malardEnvironmentName": "DEVv2",
         "malardSyncURL": "http://localhost:9000",
         "malardAsyncURL": "ws://localhost:9000",
-        "filters" : [{'column':'power','op':'gt','threshold':10000},{'column':'coh','op':'gt','threshold':0.8}, \
+        "filters" : [{'column':'power','op':'gt','threshold':10000},{'column':'coh','op':'gt','threshold':0.6}, \
                      {'column':'demDiff','op':'lt','threshold':100}, {'column':'demDiffMad','op':'lt','threshold':10}, \
                      {'column':'demDiff','op':'gt','threshold':-100}, {'column':'demDiffMad','op':'gt','threshold':-10}]
 
@@ -80,7 +91,6 @@ class MtnGlaGridcellProcess:
         self.defineVariables()
         if os.path.exists(self.maskDataSetFile):
             self.data = self.filter(self.inputDataSet)
-            # @TODO SRTM filter and join?
 
             # To Geodata
             self.logger.info('Converting to Geodataset...')
@@ -208,13 +218,11 @@ class MtnGlaGridcellProcess:
 
         self.withinDataSetFiles = []
         for i, el in enumerate(self.withinDataSets):
-            # @TODO not just Debris
             if os.path.exists(el):
                 self.withinDataSetFiles.append(el)
             else:
                 mask = self.query_sync.getGridCellMask(self.parentDsName, el, self.withinDataSetTypes[i], self.region, self.minX, self.minY, self.size)
                 self.withinDataSetFiles.append(json.loads(mask)['fileName'])
-        print(self.withinDataSetFiles)
 
     @staticmethod
     def config(name):
@@ -223,7 +231,7 @@ class MtnGlaGridcellProcess:
         self.logger.error("Uncaught exception", exc_info=(type, value, tb))
 
 if __name__ ==  '__main__':
-    mtngla = MtnGlaGridcellProcess(400000, 500000, 0, 100000)
+    #mtngla = MtnGlaGridcellProcess(400000, 500000, 0, 100000)
     #mtngla = MtnGlaGridcellProcess(500000, 600000, 0, 100000)
     #mtngla = MtnGlaGridcellProcess(700000, 800000, 0, 100000)
     #mtngla = MtnGlaGridcellProcess(500000, 600000, 100000, 200000)
@@ -234,4 +242,7 @@ if __name__ ==  '__main__':
 
     # mask file not found
     #mtngla = MtnGlaGridcellProcess(-200000, -100000, -200000, -100000)
+
+    # alaska
+    mtngla = MtnGlaGridcellProcess(-3900000, -3800000, -500000, -400000)
     mtngla.startProcess()
