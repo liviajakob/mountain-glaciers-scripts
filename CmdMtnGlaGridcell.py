@@ -23,7 +23,7 @@ def parseArguments():
 
 if __name__=="__main__":
     args=parseArguments()
-    process = mtn.MtnGlaGridcellProcess(args.minX, args.maxX, args.minY, args.maxY, logFile='mntgla3.log')
+    process = mtn.MtnGlaGridcellProcess(args.minX, args.maxX, args.minY, args.maxY, logFile='mntgla-errors.log')
     process.startProcess()
 
 

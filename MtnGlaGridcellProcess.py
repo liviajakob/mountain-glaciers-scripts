@@ -15,26 +15,38 @@ class MtnGlaGridcellProcess:
     #"referenceDem":"/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif"
 
     # HIMALAYAS
-    #"runName": "TestRun8",
+    #"runName": "ReadyHim2",
     #"outputDataSet": "Ready8",
     #"parentDsName": "mtngla",
     #"region":"himalayas",
     #"maskDataSet": "RGIv60",
     #"withinDataSets": ["SDCv10", "/data/puma1/scratch/mtngla/dems/Tdx_SRTM_SurfaceSplit.tiff"],
-    #"withinDataSetTypes": ["Debris", "Srtm"],
+    #"withinDataSetTypes": ["Debris", "DataSet"],
     #"referenceDem": "/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif",
     #"inputDataSet": "tdx2",
 
+
+    # ALASKA
+    #"runName": "AlaskaRun1",
+    #"outputDataSet": "ReadyDataAlaska2",
+    #"parentDsName": "mtngla",
+    #"region":"alaska",
+    #"maskDataSet": "RGIv60",
+    #"withinDataSets": ["SDCv10", "/data/puma1/scratch/mtngla/dems/TD_AD_Interp_SurfaceSplit.tiff"],
+    #"withinDataSetTypes": ["Debris", "DataSet"],
+    #"referenceDem": "/data/puma1/scratch/mtngla/dems/PCR_TdxFilledWithAD_Masked_Polar_Interp_clip.tif",
+    #"inputDataSet": "ADwithTDX",
+
     __conf = {
-        "runName": "AlaskaRun",
-        "outputDataSet": "ReadyData",
+        "runName": "RunHim2",
+        "outputDataSet": "ReadyHim2",
         "parentDsName": "mtngla",
-        "region":"alaska",
+        "region":"himalayas",
         "maskDataSet": "RGIv60",
-        "withinDataSets": ["SDCv10", "/data/puma1/scratch/mtngla/dems/TD_AD_Interp_SurfaceSplit.tiff"],
+        "withinDataSets": ["SDCv10", "/data/puma1/scratch/mtngla/dems/Tdx_SRTM_SurfaceSplit.tiff"],
         "withinDataSetTypes": ["Debris", "DataSet"],
-        "referenceDem": "/data/puma1/scratch/mtngla/dems/PCR_TdxFilledWithAD_Masked_Polar_Interp_clip.tif",
-        "inputDataSet": "ADwithTDX",
+        "referenceDem": "/data/puma1/scratch/mtngla/dems/HMA_TDX_Masked_SRTM_Merged_coreg_aea_clip.tif",
+        "inputDataSet": "tdx2",
         "malardEnvironmentName": "DEVv2",
         "malardSyncURL": "http://localhost:9000",
         "malardAsyncURL": "ws://localhost:9000",
@@ -90,7 +102,7 @@ class MtnGlaGridcellProcess:
         self.logger.info('Starting gridcell: minX=%s, minY=%s, parentDs=%s, inputDataSet=%s, outputDataSet=%s, runName=%s,', self.minX, self.minY, self.parentDsName, self.inputDataSet, self.outputDataSet, self.runName)
         self.defineVariables()
         if os.path.exists(self.maskDataSetFile):
-            self.data = self.filter(self.inputDataSet)
+            self.data = self.filter()
 
             # To Geodata
             self.logger.info('Converting to Geodataset...')
@@ -119,17 +131,17 @@ class MtnGlaGridcellProcess:
         sys.modules[__name__].__dict__.clear()
 
 
-    def filter(self, datasetName):
+    def filter(self):
         filters = self.config('filters')
-        self.logger.info("Filtering dataset=%s with criteria %s" % (datasetName, filters))
-        result = self.query_async.executeQuery(self.parentDsName, datasetName, self.region, self.minX, self.maxX, self.minY, self.maxY, self.minT, self.maxT,[],filters)
+        self.logger.info("Filtering dataset=%s with criteria %s" % (self.inputDataSet, filters))
+        result = self.query_async.executeQuery(self.parentDsName, self.inputDataSet, self.region, self.minX, self.maxX, self.minY, self.maxY, self.minT, self.maxT,[],filters)
         self.logger.info("Result message: %s, %s" % (result.status, result.message))
         fp = result.resultFileName
         data = PointDataSet(fp, self.projection)
         # release cache of file
         self.query_async.releaseCache(fp)
-        data.addStatistic('%s_filtered' % datasetName, data.length())
-        self.logger.info("Filter %s result count [%d]" % (datasetName, data.length()))
+        data.addStatistic('%s_filtered' % self.inputDataSet, data.length())
+        self.logger.info("Filter %s result count [%d]" % (self.inputDataSet, data.length()))
         return data
 
     def applyMasks(self):
@@ -244,5 +256,12 @@ if __name__ ==  '__main__':
     #mtngla = MtnGlaGridcellProcess(-200000, -100000, -200000, -100000)
 
     # alaska
-    mtngla = MtnGlaGridcellProcess(-3900000, -3800000, -500000, -400000)
+    #mtngla = MtnGlaGridcellProcess(-3900000, -3800000, -500000, -400000)
+
+    # alaska out of bounds error
+    #mtngla = MtnGlaGridcellProcess(-3300000, -3200000, 600000, 700000)
+
+    mtngla = MtnGlaGridcellProcess(1100000,1200000,400000,500000)
+
+
     mtngla.startProcess()

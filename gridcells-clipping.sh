@@ -1,5 +1,6 @@
 
 #Execution example: ./gridcells-clipping.sh hma-gridcells.txt
+#Execution example: ./gridcells-clipping.sh alaska-gridcells.txt
 #Execution example with time display: time ./hma-gridcells.sh hma-gridcells.txt
 
 #Sets input variable to be the first variable. This should be the command file.

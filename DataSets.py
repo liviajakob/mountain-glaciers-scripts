@@ -1,7 +1,6 @@
 import MalardHelpers
 import logging
 import pandas as pd
-import os
 import geopandas as gp
 from shapely.geometry import Point, Polygon
 import shapely.speedups
@@ -9,6 +8,18 @@ from osgeo import gdal
 from scipy.interpolate import griddata
 import numpy as np
 import affine
+import statsmodels.api as sm
+from scipy.interpolate import griddata
+import pandas as  pd
+import json
+import math
+from pandas.io.json import json_normalize
+from shapely.geometry import Polygon, Point
+import os
+import numpy as np
+import datetime
+from dateutil.relativedelta import *
+
 
 
 
@@ -78,6 +89,109 @@ class PointDataSet:
             self.data['refDifference'] = self.data['elev']-self.data['refElevation']
             self.logger.info("Finished calculating difference, mean difference =  %s... " % self.data['refDifference'].mean())
             self.stats['meanElevationDifference'] = self.data['refDifference'].mean()
+
+
+    def linearRegression(self):
+        self.logger.info("Linear regression...")
+        # model variables
+        vals = np.asarray([self.data.time])
+        vals = np.transpose(vals)
+        vals = sm.add_constant(vals)
+        elev = self.data.refDifference
+
+        # Create model and fit it (least squares)
+        model = sm.OLS(elev, vals)
+        # OR robust model -- note that it won't have r squared
+        #model = sm.RLM(y, x)
+        results = model.fit()
+
+        regression_results = {}
+
+        regression_results['regression.rsquared'] = results.rsquared
+        regression_results['regression.c'] = results.params.x1
+        regression_results['regression.c.se'] = results.bse.x1
+        regression_results['regression.c.year'] = results.params.x1*31536000
+        regression_results['regression.c.se.year'] = results.bse.x1*31536000
+        regression_results['regression.const'] = results.params.const
+        regression_results['regression.const.se'] = results.bse.const
+        regression_results['regression.count'] = results.nobs
+
+        if hasattr(self, 'regression_results'):
+            merge = {**self.regression_results, **regression_results}
+            self.regression_results = merge
+        else:
+            self.regression_results = regression_results
+
+        return regression_results
+
+
+    def timeSeries(self, startdate=datetime.datetime(2010,11,1,0,0), enddate=datetime.datetime(2019,1,1,0,0), interval=3):
+        self.logger.info("Calculating time series...")
+
+        dateobjects = []
+        for i, row in self.data.iterrows():
+            date = datetime.datetime.utcfromtimestamp(self.data.time[i])
+            dateobjects.append(date)
+
+        self.data['dateobject'] = dateobjects
+
+        averages = []
+        dates = []
+        changes = []
+
+        use_date = startdate
+        while use_date <= enddate:
+            df_filt = self.data[(self.data.dateobject >= use_date) & (self.data.dateobject <(use_date+relativedelta(months=+interval)))]
+            averages.append(df_filt.refDifference.mean())
+            dates.append(use_date)
+            use_date = use_date+relativedelta(months=+interval)
+
+        for i in averages:
+            changes.append(i-averages[0])
+
+        timeseries_results = {}
+
+        timeseries_results['timeseries.dates'] = dates
+        timeseries_results['timeseries.averages'] = averages
+        timeseries_results['timeseries.change'] = changes
+
+        if hasattr(self, 'timeseries_results'):
+            merge = {**self.timeseries_results, **timeseries_results}
+            self.timeseries_results = merge
+        else:
+            self.timeseries_results = timeseries_results
+        return timeseries_results
+
+
+    def robustRegression(self):
+        self.logger.info("Robust regression...")
+        # model variables
+        vals = np.asarray([self.data.time])
+        vals = np.transpose(vals)
+        vals = sm.add_constant(vals)
+        elev = self.data.refDifference
+
+        # Create model and fit it (least squares)
+        model = sm.RLM(elev, vals)
+        results = model.fit()
+
+        regression_results = {}
+
+        regression_results['regression.robust.c'] = results.params.x1
+        regression_results['regression.robust.c.se'] = results.bse.x1
+        regression_results['regression.robust.c.year'] = results.params.x1*31536000
+        regression_results['regression.robust.c.se.year'] = results.bse.x1*31536000
+        regression_results['regression.robust.const'] = results.params.const
+        regression_results['regression.robust.const.se'] = results.bse.const
+        regression_results['regression.robust.count'] = results.nobs
+
+        if hasattr(self, 'regression_results'):
+            merge = {**self.regression_results, **regression_results}
+            self.regression_results = merge
+        else:
+            self.regression_results = regression_results
+
+        return regression_results
 
 
     def hasData(self):
@@ -181,7 +295,7 @@ class PointGeoDataSet(PointDataSet):
     def _withinMaskRaster(self, maskPath, maskType):
         self.logger.info("Read raster mask file... ")
         raster = RasterDataSet(maskPath)
-        buffer = (self.data['x'].max()-self.data['x'].min())/10
+        buffer = raster.data.GetGeoTransform()[1]*2
         raster.cutToBbx(self.data['x'].min(), self.data['x'].max(), self.data['y'].min(), self.data['y'].max(), buffer=buffer)
 
         self.logger.info("Apply %s mask (adds a column to points describing if they within mask)... " % maskType)
@@ -194,8 +308,8 @@ class PointGeoDataSet(PointDataSet):
         for i in unique:
             count = self.data.loc[(self.data['within_%s' % maskType] == i)].shape[0]
             ratio = (float(count)/ float(self.data.shape[0])) *100.0
-            self.stats['pointsOn%sValue%s' % (maskType, i)] = float(count)
-            self.stats['pointsOn%sValue%sRatio' % (maskType, i)] = ratio
+            self.stats['pointsOn%sValue%s' % (maskType, int(i))] = float(count)
+            self.stats['pointsOn%sValue%sRatio' % (maskType, int(i))] = ratio
             self.logger.info("Points within %s mask value %s: count [%d]" % (maskType, i, count))
             self.logger.info("Points within %s mask value %s: ratio [%s]" % (maskType, i, ratio))
         #count = self.data.loc[(self.data['within_%s' % maskType] == 1)].shape[0]
@@ -253,7 +367,6 @@ class RasterDataSet:
         if isinstance(x, (list, np.ndarray)) and isinstance(y, (list, np.ndarray)):
             values =[]
             for idx, i in enumerate(x):
-                #print(self._getPixel(x[idx],y[idx],reverse_transform))
                 values.append(data[self._getPixel(x[idx],y[idx],self.data.GetGeoTransform())])
             return values
         else:

@@ -4,17 +4,26 @@ e.g. HMA gives
 import DataSetQuery
 import json
 
-cmdFile='hma-gridcells.txt'
+# HIMALAYAS
+#cmdFile='hma-gridcells.txt'
+#parentDsName = 'mtngla'
+#region = 'himalayas'
+#size=100000
+#dataset= 'tdx2'
+
+# ALASKA
+cmdFile='alaska-gridcells.txt'
 parentDsName = 'mtngla'
-region = 'himalayas'
+region = 'alaska'
 size=100000
+dataset = 'ADwithTDX'
 
 
 # get min Max boundingbox
 environmentName = 'DEVv2'
 query = DataSetQuery.DataSetQuery('http://localhost:9000',environmentName)
 
-bbx = query.getDataSetBoundingBox(parentDsName, 'tdx', region)
+bbx = query.getDataSetBoundingBox(parentDsName, dataset, region)
 bbx = json.loads(bbx)
 minX=bbx['gridCellMinX']
 maxX=bbx['gridCellMaxX']

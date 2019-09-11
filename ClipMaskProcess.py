@@ -19,28 +19,32 @@ class ClipMaskProcess:
     # Himalayas Debris
     # "SDCv10"
     # "/data/puma1/scratch/mtngla/masks/himalayas/debris/13_14_15_rgi60_Himalayas_debris.shp"
+    # inputDataSet: tdx2
 
     # Himalayas Glacier
     # "RGIv60"
     # "/data/puma1/scratch/mtngla/masks/himalayas/glacier-outlines/13_14_15_rgi60_Himalayas_mask.shp"
+    # inputDataSet: tdx2
 
     # ----
 
     # Alaska Debris
     # "SDCv10"
-    # "/data/puma1/scratch/mtngla/masks/alaska/debris/PCR-debris-outline.shp"
+    # "/data/puma1/scratch/mtngla/masks/alaska/debris/PCR-debris-outlines.shp"
+    # inputDataSet: ADwithTDX
 
     # Alaska Glacier
     # "RGIv60"
     # "/data/puma1/scratch/mtngla/masks/alaska/glacier/PCR-glacier-outlines.shp"
+    # inputDataSet: ADwithTDX
 
     __conf = {
-        "maskType": "Glacier",
-        "maskPath": "/data/puma1/scratch/mtngla/masks/alaska/glacier/PCR-glacier-outlines.shp",
-        "dataSet": "RGIv60",
+        "maskType": "Debris",
+        "maskPath": "/data/puma1/scratch/mtngla/masks/alaska/debris/PCR-debris-outlines.shp",
+        "dataSet": "SDCv10",
+        "inputDataSet": "ADwithTDX",
         "region": "alaska",
         "parentDsName": "mtngla",
-        "inputDataSet": "tdx2",
         "malardEnvironmentName": "DEVv2",
         "malardSyncURL": "http://localhost:9000",
         "malardAsyncURL": "ws://localhost:9000",
@@ -160,6 +164,7 @@ class ClipMaskProcess:
         # publish
         self.logger.info('Publishing file with params: Parent Dataset: %s, Dataset %s,  Region: %s, Mask type: %s', self.parentDsName, self.dataSet, self.region, self.maskType)
         query = DataSetQuery.DataSetQuery('http://localhost:9000')
+        print((self.config("temporaryPublishPath"), fileName, self.parentDsName, self.dataSet, self.maskType, self.region, self.minX, self.minY, self.size))
         msg = query.publishMask(self.config("temporaryPublishPath"), fileName, self.parentDsName, self.dataSet, self.maskType, self.region, self.minX, self.minY, self.size)
         self.logger.info(msg)
 
@@ -179,5 +184,8 @@ class ClipMaskProcess:
 
 if __name__ ==  '__main__':
     # himalayas
-    clip = ClipMaskProcess(100000, 200000, 0, 100000)
+    #clip = ClipMaskProcess(100000, 200000, 0, 100000)
+
+    # alaska
+    clip=ClipMaskProcess(-4000000, -3900000, -600000, -500000)
     clip.startProcess()
